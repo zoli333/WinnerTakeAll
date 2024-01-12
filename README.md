@@ -3,3 +3,4 @@ Pytorch implementation of Winner-take-all autoencoders:
 
 ## Github references
 https://github.com/guoguo12/tensorflow-fcwta.git
+https://github.com/mdda/SparseNet.git
