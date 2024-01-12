@@ -3,4 +3,5 @@ fc_wta/data
 fc_wta/train_results
 conv_wta/data
 conv_wta/train_results
-
+.idea
+__pycache__
