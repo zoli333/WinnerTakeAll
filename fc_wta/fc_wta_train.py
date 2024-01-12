@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
-from sparsity import init_weights, Sparsity
+from sparsity import init_weights, Sparsity, MaxpoolSparsity
 
 out_features = 2000
 in_features = 784
@@ -24,6 +24,7 @@ class Model(nn.Module):
             last_encoder_linear,
             nn.LeakyReLU(inplace=True)
         )
+        # self.sparsity = Sparsity(spatial_sparsity_amount=0, lifetime_sparsity_amount=5)
         self.sparsity = Sparsity(spatial_sparsity_amount=0, lifetime_sparsity_amount=5)
         self.decoder = nn.Sequential(
             first_decoder_linear

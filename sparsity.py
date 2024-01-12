@@ -27,6 +27,7 @@ def fc_wta_tie_weights_at_test_time(model):
     # -- copy to last encoder layer
     model.encoder[1].weight.data = torch.transpose(decoder_weight, 1, 0)
 
+
 class CombinedSparsity(nn.Module):
     def __init__(self, spatial_sparsity=1, lifetime_sparsity=1):
         super(CombinedSparsity, self).__init__()
@@ -35,10 +36,10 @@ class CombinedSparsity(nn.Module):
         self.pool = None
         self.unpool = None
 
-    def _sparsity_mask(self, vals):
+    def _sparsity_mask(self, vals, k):
         vals_ = vals.view(vals.size(0), -1)
-        values, indices = torch.topk(vals_, k=self.lifetime_sparsity, dim=0)
-        t = torch.transpose(indices, 1, 0).flatten(), torch.repeat_interleave(torch.arange(vals_.size(1)), self.lifetime_sparsity)
+        values, indices = torch.topk(vals_, k=k, dim=0)
+        t = torch.transpose(indices, 1, 0).flatten(), torch.repeat_interleave(torch.arange(vals_.size(1)), k)
         mask = torch.zeros_like(vals_, dtype=torch.float32)
         mask[t] = 1.0
         lifetime_sparsity_result = (vals_ * mask.squeeze().squeeze())
@@ -46,6 +47,13 @@ class CombinedSparsity(nn.Module):
         return lifetime_sparsity_result
 
     def forward(self, activations):
+        if not self.training:
+            return activations
+
+        if activations.ndim == 2:
+            lifetime_sparsity_result = self._sparsity_mask(activations, self.lifetime_sparsity)
+            return lifetime_sparsity_result
+
         if not self.pool and not self.unpool:
             assert activations.size(2) % self.spatial_sparsity == 0, "not divisible"
             pool_width = int(activations.size(2) / self.spatial_sparsity)
@@ -53,15 +61,7 @@ class CombinedSparsity(nn.Module):
             self.unpool = nn.MaxUnpool2d(kernel_size=pool_width, stride=pool_width)
 
         spatial_sparsity_result, spatial_indices = self.pool(activations)
-        lifetime_sparsity_result = self._sparsity_mask(spatial_sparsity_result)
-        # b,c,w,h = activations.shape
-        # spatial_sparsity_result = spatial_sparsity_result.view(b, -1)
-        # values, indices = torch.topk(spatial_sparsity_result, k=self.lifetime_sparsity, dim=0)
-        # t = torch.transpose(indices, 1, 0).flatten(), torch.repeat_interleave(torch.arange(spatial_sparsity_result.size(1)), self.lifetime_sparsity)
-        # mask = torch.zeros_like(spatial_sparsity_result, dtype=torch.float32)
-        # mask[t] = 1.0
-        # lifetime_sparsity_result = (spatial_sparsity_result * mask.squeeze().squeeze())
-        # lifetime_sparsity_result = lifetime_sparsity_result.unsqueeze(-1).unsqueeze(-1)
+        lifetime_sparsity_result = self._sparsity_mask(spatial_sparsity_result, self.lifetime_sparsity)
         result = self.unpool(lifetime_sparsity_result, spatial_indices)
         return result
 
@@ -87,6 +87,9 @@ class SpatialSparsity(nn.Module):
         self.k = k
 
     def forward(self, activations):
+        if not self.training:
+            return activations
+
         b, c, w, h = activations.shape
         y = activations.view(b, c, w * h)
         winners, _ = torch.topk(y, k=self.k, dim=-1)
@@ -101,8 +104,10 @@ class LifetimeSparsity(nn.Module):
         self.k = k
 
     def forward(self, activations, winners):
+        if not self.training:
+            return activations
+
         if winners is None:
-            assert activations.ndim == 4, "Lifetime Sparsity can be used only in fc-wta case"
             # fully connected wta
             winners, _ = torch.topk(activations, k=self.k, dim=0)  # b, c
             mask = torch.where(activations < winners[self.k-1:self.k, :], 0, 1)
@@ -125,6 +130,9 @@ class Sparsity(nn.Module):
         self.lifetime_sparsity = LifetimeSparsity(k=lifetime_sparsity_amount)
 
     def forward(self, x):
+        if not self.training:
+            return x
+
         if self.spatial_sparsity_amount > 0 and self.lifetime_sparsity_amount > 0:
             x, winners = self.spatial_sparsity(x)
             x = self.lifetime_sparsity(x, winners)
