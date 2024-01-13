@@ -24,7 +24,7 @@ class Model(nn.Module):
             last_encoder_linear,
             nn.LeakyReLU(inplace=True)
         )
-        # self.sparsity = Sparsity(spatial_sparsity_amount=0, lifetime_sparsity_amount=5)
+        # self.sparsity = MaxpoolSparsity(spatial_sparsity_amount=0, lifetime_sparsity_amount=5)
         self.sparsity = Sparsity(spatial_sparsity_amount=0, lifetime_sparsity_amount=5)
         self.decoder = nn.Sequential(
             first_decoder_linear
