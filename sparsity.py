@@ -91,6 +91,7 @@ class SpatialSparsity(nn.Module):
         if not self.training:
             return activations
 
+        assert activations.ndim == 4, "spatial sparsity can only be applied to convolutional architecture"
         b, c, w, h = activations.shape
         y = activations.view(b, c, w * h)
         winners, _ = torch.topk(y, k=self.k, dim=-1)
