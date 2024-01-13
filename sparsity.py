@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class LogisticRegression(nn.Module):
     def __init__(self, out_features):
         super(LogisticRegression, self).__init__()
@@ -138,6 +139,7 @@ class Sparsity(nn.Module):
             x = self.lifetime_sparsity(x, winners)
             return x
         elif self.lifetime_sparsity_amount > 0:
+            assert x.ndim == 2, "lifetime sparsity without spatial sparsity can only be applied on fully connected layer architecture"
             x = self.lifetime_sparsity(x, None)
             return x
         # spatial sparsity only
